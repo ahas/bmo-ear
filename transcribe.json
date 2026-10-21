@@ -1,0 +1,11 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "description": "The saved voice file's path on this machine, as the message's note names it.",
+      "type": "string"
+    }
+  },
+  "required": ["path"],
+  "type": "object"
+}

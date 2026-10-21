@@ -1,0 +1,22 @@
+# An installation's settings, with reserved names (docs/setup.md). A test copies this file into a
+# temporary data root; no installation's values stand in the repository.
+
+[node]
+agent = "example-node"
+
+[hub]
+bun = "/opt/example/bun"
+console = "/opt/example/console.ts"
+
+[place]
+root = "/home/example/bmo-ear"
+turn = "/home/example/bmo-card/turn.py"
+python = "/home/example/bmo-ear/.venv/bin/python"
+service = "ear"
+uv = "/home/example/.local/bin/uv"
+
+[engine]
+model = "large-v3-turbo"
+language = "ko"
+device = "cuda"
+compute = "float16"

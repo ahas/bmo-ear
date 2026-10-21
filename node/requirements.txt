@@ -1,0 +1,5 @@
+# The node's speech environment. `av` is held at 17: faster-whisper 1.2.1 reads an audio container
+# with `av.open(..., metadata_errors=...)`, and later av releases no longer take that argument, so a
+# newer one makes every transcription end in an argument error.
+faster-whisper==1.2.1
+av==17.1.0

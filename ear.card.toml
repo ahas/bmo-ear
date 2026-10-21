@@ -1,0 +1,9 @@
+# The ear service as the card master places it (docs/design.md, 「The card」): one node, below the
+# services a node keeps first, and the adapter in this folder.
+
+service = "ear"
+card_mib = 4000
+priority = 60
+spread = "one"
+alone = false
+adapter = ["python3", "adapter.py"]
