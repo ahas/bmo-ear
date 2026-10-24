@@ -1,0 +1,16 @@
+# How the testbed tests and checks this repository, in the testbed's declaration format.
+testbed = 0
+name = "bmo-ear"
+
+[test]
+# The suite has no runner of a language the testbed gathers; the check step below is the repository's
+# test, and the tool host's manifest check is the same command.
+languages = []
+
+[check]
+quick = ["korean"]
+korean_ledger = "korean-ledger.json"
+
+[[check.step]]
+id = "tests"
+command = "python3 -m unittest discover -s tests -t . -v"

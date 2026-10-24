@@ -1,12 +1,12 @@
 # bmo-ear as a tool of BMO's (docs/design.md): one entry a session calls with the path of a saved
 # voice file, answered by transcribing it on a GPU node through that node's card arbiter. The build
-# places this repository's code and the shared Python tool helper beside the executable.
+# places this repository's code and the vendored Python tool helper beside the executable.
 
 [tool]
 name = "bmo-ear"
 protocol = 1
 language = "python"
-build = 'cp -r ear ear-tool.py "$BMO_TOOL_OUT/" && cp "$BMO_TREE/tools/_sdk/python/bmo_tool.py" "$BMO_TOOL_OUT/"'
+build = 'cp -r ear ear-tool.py bmo_tool.py "$BMO_TOOL_OUT/"'
 check = 'python3 -m unittest discover -s tests -t . -v'
 run = ["python3", "ear-tool.py"]
 timeout = 900

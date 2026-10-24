@@ -7,6 +7,8 @@
   store's copy of a voice message, or any other file the caller may read.
 - The answer is the transcript as text, in the language the installation names, Korean where it names
   none, with the device it was read on.
+- The tool host places the tool and hands each call to the executable; the entry is shown to a session
+  holding the `room.tools` capability. Nothing of the tool is linked into the host.
 
 ## Where it listens
 
@@ -25,6 +27,9 @@
 - A service with no place among the node's occupants is refused by the arbiter, and that refusal is
   the answer: the tool never runs on the card outside the arbiter, never takes another occupant's
   name, and never moves to the CPU or to another machine instead.
+- The card master places the service through the declaration at the repository's root, whose adapter
+  installs the node's program and its environment and says whether they read. The adapter starts no
+  resident process: the tool's process on the node is the only one that holds the card.
 - A CPU installation names a node whose card this tool does not use; it runs without asking the
   arbiter, and its answer names the CPU as the device. It is a choice the installation states, never
   something the tool does when a card run fails.
@@ -51,8 +56,9 @@
 
 ## The tool's side and the node's side
 
-- This machine runs a small tool with the standard library alone: it reads the settings, checks the
-  file, carries it, runs the node's command, and answers what came back.
+- This machine runs a small tool with the standard library and the tool host's Python helper, which
+  the build places beside the executable: it reads the settings, checks the file, carries it, runs the
+  node's command, and answers what came back.
 - The node runs one Python program in the installation's virtual environment, where `faster-whisper`
   and its weights stand. The program loads the model only after the card is its turn's, so nothing of
   it rests on another occupant's card.

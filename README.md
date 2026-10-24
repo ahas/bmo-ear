@@ -13,11 +13,12 @@ there and removed; the transcript comes back as text.
 |---|---|
 | `ear/` | The tool's own code: the settings reader, the node's road, and the call that carries a file and answers a transcript |
 | `node/` | The program the node runs: `faster-whisper` behind one JSON line |
-| `tests/` | Every test, the manifest's shape among them |
+| `tests/` | Every test, the manifest's shape and the personal-data check among them |
 | `docs/` | What the tool does (`design.md`) and how one installation is set up (`setup.md`) |
 
 At the root stand the tool's manifest (`tool.toml`), the card master's declaration (`ear.card.toml`),
-the entry's schemas, the executable (`ear-tool.py`), the adapter (`adapter.py`) and the version.
+the entry's schemas, the executable (`ear-tool.py`), the tool host's Python helper (`bmo_tool.py`),
+the adapter (`adapter.py`), the testbed declaration (`testbed.toml`) and the version.
 
 ## Building and testing
 
@@ -25,9 +26,25 @@ the entry's schemas, the executable (`ear-tool.py`), the adapter (`adapter.py`) 
 python3 -m unittest discover -s tests -t . -v
 ```
 
-The manifest's build copies the executable, its package and the shared Python tool helper into the
-placed folder; the manifest's check is the test suite above, and it is the unit the parent
-repository's static check and suite run for this folder.
+The manifest's build copies the executable, its package and the helper into the placed folder; its
+check is the test suite above. The testbed declaration runs the same suite as its one check step.
+
+## Placing it
+
+The tool host places this repository under its registry, with the capability its entry asks for:
+
+```sh
+bmo pocket put . --allow room.tools
+```
+
+A session holding `room.tools` reaches the entry as `bmo/transcribe`, or through the toolbook.
+
+## The card service
+
+`ear.card.toml` declares the `ear` service to the card master. The adapter installs the node's program
+and its `faster-whisper` environment on the node and answers whether they read. The card master places
+the service on the node the installation names; the tool asks the node's arbiter for the `ear` turn
+before the model runs.
 
 ## Settings
 

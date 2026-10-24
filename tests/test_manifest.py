@@ -43,6 +43,18 @@ class ManifestTest(unittest.TestCase):
 
     def test_the_executable_stands(self):
         self.assertTrue((ROOT / "ear-tool.py").is_file())
+        self.assertTrue((ROOT / "bmo_tool.py").is_file())
+        self.assertIn("bmo_tool.py", self.manifest["tool"]["build"])
+
+    def test_the_testbed_runs_the_same_suite(self):
+        declaration = tomllib.loads((ROOT / "testbed.toml").read_text(encoding="utf-8"))
+        self.assertEqual(declaration["name"], ROOT.name)
+        self.assertEqual(declaration["test"]["languages"], [])
+        self.assertEqual(declaration["check"]["quick"], ["korean"])
+        self.assertEqual(declaration["check"]["korean_ledger"], "korean-ledger.json")
+        steps = declaration["check"]["step"]
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]["command"], self.manifest["tool"]["check"])
 
     def test_the_card_declaration(self):
         card = tomllib.loads((ROOT / "ear.card.toml").read_text(encoding="utf-8"))

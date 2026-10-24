@@ -1,17 +1,18 @@
 # Setting up an installation
 
-The repository carries the tool and the node's program. What belongs to one installation — the node,
-the way this machine reaches it, and the folder under the node account's home — stands in a settings
-file under the data root, outside the repository.
+The repository carries the tool, the node's program and the card master's adapter. What belongs to one
+installation — the node, the way this machine reaches it, and the folder under the node account's home
+— stands in a settings file under the data root, outside the repository.
 
 ## The settings file
 
-`$BMO_DATA_DIR/ear/settings.toml`:
+The tool reads `ear/settings.toml` under the data root the host's `BMO_DATA_DIR` names, or under bmo's
+default data root, `~/.local/share/bmo/data`, where the host sets none. `$BMO_DATA_DIR/ear/settings.toml`:
 
 ```toml
 [node]
 # The node the installation transcribes on, as the hub knows it.
-agent = "n2"
+agent = "example-node"
 
 [hub]
 # The program that carries a command and a file to a node of the hub kind, and the interpreter that
@@ -59,20 +60,39 @@ The adapter's `install` verb builds it on the node:
 
 - `ear.card.toml` declares the service to the card master: one node, priority 60, not alone, its
   adapter in this repository.
-- The master places it with `card-master place ear --to <node>`, which runs the adapter's `install`
+- The master places it with `bmo-arbiter place ear --to <node>`, which runs the adapter's `install`
   and asks its `health`.
 - A node reserved for an alone service at a higher priority takes it only while it stands below that
   service and does not stand alone itself. A placement that the node's reservation refuses is said by
   the master and is not worked around here.
 
+## The tool host
+
+The tool host places this repository and serves its entry to the sessions whose record holds the
+capability the entry asks for:
+
+```sh
+bmo pocket put . --allow room.tools
+```
+
+The host reads the manifest at the next call; no restart is needed. An upgrade is the same command
+after the change.
+
 ## Checking an installation
 
-- `python3 -m unittest discover -s tests -t .` runs the repository's tests.
-- A call by hand, from a checkout:
+- `python3 -m unittest discover -s tests -t .` runs the repository's tests; the testbed declaration
+  runs the same suite as its one check step.
+- A call by hand, with the tool placed:
+
+  ```sh
+  bmo pocket tool call bmo/transcribe '{"path":"/tmp/voice.ogg"}'
+  ```
+
+- A call by hand, from a checkout, without the tool host:
 
   ```sh
   printf '%s' '{"protocol":1,"kind":"call","entry":"bmo/transcribe","arguments":{"path":"/tmp/voice.ogg"},"session":{"dataRoot":"/home/example/.local/share/bmo/data"}}' \
-    | PYTHONPATH=<checkout>/tools/_sdk/python python3 ear-tool.py
+    | python3 ear-tool.py
   ```
 
 - The tool's own timeout is generous: the first run on a node fetches the model's weights.
