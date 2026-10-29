@@ -28,7 +28,7 @@ class HelperTest(unittest.TestCase):
                 {
                     "protocol": 1,
                     "kind": "call",
-                    "entry": "bmo/transcribe",
+                    "entry": "ear/listen",
                     "arguments": {"path": "/tmp/voice.ogg"},
                     "session": {"dataRoot": "/tmp"},
                 }
@@ -36,7 +36,7 @@ class HelperTest(unittest.TestCase):
         )
         said = io.BytesIO()
         bmo_tool.answer(
-            {"bmo/transcribe": lambda call: bmo_tool.text(call.arguments["path"])},
+            {"ear/listen": lambda call: bmo_tool.text(call.arguments["path"])},
             given=given,
             said=said,
         )
@@ -68,7 +68,7 @@ class HelperTest(unittest.TestCase):
                 {
                     "protocol": 2,
                     "kind": "call",
-                    "entry": "bmo/transcribe",
+                    "entry": "ear/listen",
                     "arguments": {},
                     "session": {"dataRoot": "/tmp"},
                 }

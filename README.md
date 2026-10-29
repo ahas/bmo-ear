@@ -1,6 +1,6 @@
 # bmo-ear
 
-The listening tool: one entry, `bmo/transcribe`, that takes the path of a saved voice file and answers
+The listening tool: one entry, `ear/listen`, that takes the path of a saved voice file and answers
 with what is said in it, in Korean.
 
 The speech model runs on a GPU node of the card pool through that node's card arbiter, half precision,
@@ -37,7 +37,7 @@ The tool host places this repository under its registry, with the capability its
 bmo pocket put . --allow room.tools
 ```
 
-A session holding `room.tools` reaches the entry as `bmo/transcribe`, or through the toolbook.
+A session holding `room.tools` reaches the entry as `ear/listen`, or through the toolbook.
 
 ## The card service
 

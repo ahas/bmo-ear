@@ -91,7 +91,7 @@ after the change.
 - A call by hand, from a checkout, without the tool host:
 
   ```sh
-  printf '%s' '{"protocol":1,"kind":"call","entry":"bmo/transcribe","arguments":{"path":"/tmp/voice.ogg"},"session":{"dataRoot":"/home/example/.local/share/bmo/data"}}' \
+  printf '%s' '{"protocol":1,"kind":"call","entry":"ear/listen","arguments":{"path":"/tmp/voice.ogg"},"session":{"dataRoot":"/home/example/.local/share/bmo/data"}}' \
     | python3 ear-tool.py
   ```
 

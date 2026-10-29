@@ -12,9 +12,9 @@ run = ["python3", "ear-tool.py"]
 timeout = 900
 
 [[entry]]
-namespace = "bmo"
-name = "transcribe"
-title = "Transcribe"
+namespace = "ear"
+name = "listen"
+title = "Listen"
 description = "Take a saved voice file down as Korean text, transcribed on a GPU node through its card arbiter, and answer with what was heard."
 input = "transcribe.json"
 output = "transcribed.json"

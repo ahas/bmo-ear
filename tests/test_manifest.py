@@ -27,7 +27,7 @@ class ManifestTest(unittest.TestCase):
         entries = self.manifest["entry"]
         self.assertEqual(len(entries), 1)
         entry = entries[0]
-        self.assertEqual(f"{entry['namespace']}/{entry['name']}", "bmo/transcribe")
+        self.assertEqual(f"{entry['namespace']}/{entry['name']}", "ear/listen")
         self.assertIn("room.tools", entry["capabilities"])
         self.assertTrue(entry["description"])
 

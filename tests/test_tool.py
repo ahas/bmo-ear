@@ -48,14 +48,14 @@ class ToolTest(unittest.TestCase):
         )
 
     def test_a_missing_file_is_an_error_answer(self):
-        ran = call("bmo/transcribe", {"path": str(self.root / "missing.ogg")}, self.root)
+        ran = call("ear/listen", {"path": str(self.root / "missing.ogg")}, self.root)
         self.assertEqual(ran.returncode, 0)
         answer = json.loads(ran.stdout)
         self.assertTrue(answer["isError"])
         self.assertIn("does not stand", answer["content"][0]["text"])
 
     def test_a_missing_settings_file_is_an_error_answer(self):
-        ran = call("bmo/transcribe", {"path": str(self.voice)}, self.root)
+        ran = call("ear/listen", {"path": str(self.voice)}, self.root)
         self.assertEqual(ran.returncode, 0)
         answer = json.loads(ran.stdout)
         self.assertTrue(answer["isError"])
@@ -63,7 +63,7 @@ class ToolTest(unittest.TestCase):
 
     def test_a_node_that_cannot_be_reached_is_named(self):
         self.settings()
-        ran = call("bmo/transcribe", {"path": str(self.voice)}, self.root)
+        ran = call("ear/listen", {"path": str(self.voice)}, self.root)
         self.assertEqual(ran.returncode, 0)
         answer = json.loads(ran.stdout)
         self.assertTrue(answer["isError"])
@@ -72,7 +72,7 @@ class ToolTest(unittest.TestCase):
     def test_the_hosts_data_root_is_read_when_the_call_names_none(self):
         self.settings()
         env = {"BMO_DATA_DIR": str(self.root)}
-        ran = call("bmo/transcribe", {"path": str(self.voice)}, self.root, session={}, env=env)
+        ran = call("ear/listen", {"path": str(self.voice)}, self.root, session={}, env=env)
         self.assertEqual(ran.returncode, 0)
         answer = json.loads(ran.stdout)
         self.assertTrue(answer["isError"])
@@ -87,7 +87,7 @@ class ToolTest(unittest.TestCase):
             encoding="utf-8",
         )
         env = {"HOME": str(home)}
-        ran = call("bmo/transcribe", {"path": str(self.voice)}, self.root, session={}, env=env)
+        ran = call("ear/listen", {"path": str(self.voice)}, self.root, session={}, env=env)
         self.assertEqual(ran.returncode, 0)
         answer = json.loads(ran.stdout)
         self.assertTrue(answer["isError"])
@@ -97,7 +97,7 @@ class ToolTest(unittest.TestCase):
         home = self.root / "home"
         home.mkdir()
         env = {"HOME": str(home)}
-        ran = call("bmo/transcribe", {"path": str(self.voice)}, self.root, session={}, env=env)
+        ran = call("ear/listen", {"path": str(self.voice)}, self.root, session={}, env=env)
         self.assertEqual(ran.returncode, 0)
         answer = json.loads(ran.stdout)
         self.assertTrue(answer["isError"])
@@ -111,7 +111,7 @@ class ToolTest(unittest.TestCase):
         self.assertIn("no entry", answer["content"][0]["text"])
 
     def test_a_call_of_another_protocol_ends_unclean(self):
-        ran = call("bmo/transcribe", {}, self.root, protocol=2)
+        ran = call("ear/listen", {}, self.root, protocol=2)
         self.assertEqual(ran.returncode, 1)
         self.assertIn("does not read", ran.stderr)
 

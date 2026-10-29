@@ -8,7 +8,7 @@ and answers with its transcript, transcribed on a GPU node through the node's ca
 - **It runs on its own,** building, testing and running from this repository alone, reading no other
   repository's code, files, data or settings. The tool host's Python helper is vendored here because a
   placed tool's build is handed no path into another repository.
-- **It is met only through its documented contract:** the `bmo/transcribe` entry, its input and output
+- **It is met only through its documented contract:** the `ear/listen` entry, its input and output
   schemas, and the card service's adapter.
 - **It knows nothing of its callers.** A room, a session or an agent is not in its code or documents;
   the caller names a file and reads the transcript.
