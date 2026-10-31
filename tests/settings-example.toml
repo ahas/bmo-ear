@@ -1,8 +1,8 @@
 # An installation's settings, with reserved names (docs/setup.md). A test copies this file into a
 # temporary data root; no installation's values stand in the repository.
 
-[node]
-agent = "example-node"
+[arbiter]
+address = "http://127.0.0.1:7440"
 
 [hub]
 bun = "/opt/example/bun"

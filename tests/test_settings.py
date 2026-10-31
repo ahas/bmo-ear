@@ -4,11 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ear.settings import SettingsError, read, settings_path
+from ear.settings import DEFAULT_ARBITER, SettingsError, read, settings_path
 
 GOOD = """
-[node]
-agent = "example-node"
+[arbiter]
+address = "http://127.0.0.1:7440"
 
 [hub]
 bun = "/opt/example/bun"
@@ -46,11 +46,28 @@ class SettingsTest(unittest.TestCase):
     def test_reads_every_table(self):
         self.write(GOOD)
         settings = read(self.root)
-        self.assertEqual(settings.agent, "example-node")
+        self.assertEqual(settings.arbiter.address, "http://127.0.0.1:7440")
         self.assertEqual(settings.hub.console, "/opt/example/console.ts")
         self.assertEqual(settings.place.service, "ear")
         self.assertEqual(settings.engine.model, "large-v3-turbo")
         self.assertEqual(settings.engine.language, "ko")
+
+    def test_the_master_on_the_loopback_where_none_is_named(self):
+        self.write(GOOD.replace('[arbiter]\naddress = "http://127.0.0.1:7440"\n', ""))
+        self.assertEqual(read(self.root).arbiter.address, DEFAULT_ARBITER)
+
+    def test_the_master_is_an_http_address(self):
+        self.write(GOOD.replace('"http://127.0.0.1:7440"', '"127.0.0.1:7440"'))
+        with self.assertRaises(SettingsError) as raised:
+            read(self.root)
+        self.assertIn("[arbiter] address", str(raised.exception))
+
+    def test_a_node_named_in_the_settings_is_refused(self):
+        self.write('[node]\nagent = "example-node"\n' + GOOD)
+        with self.assertRaises(SettingsError) as raised:
+            read(self.root)
+        self.assertIn("[node]", str(raised.exception))
+        self.assertIn("card master names the node", str(raised.exception))
 
     def test_missing_file_names_its_path(self):
         with self.assertRaises(SettingsError) as raised:
@@ -83,7 +100,7 @@ class SettingsTest(unittest.TestCase):
         self.assertIn("absolute", str(raised.exception))
 
     def test_broken_toml_is_refused(self):
-        self.write("[node\nagent = 1")
+        self.write("[hub\nbun = 1")
         with self.assertRaises(SettingsError) as raised:
             read(self.root)
         self.assertIn("does not read", str(raised.exception))

@@ -6,10 +6,10 @@ from pathlib import Path
 from unittest import mock
 
 from ear import node
-from ear.settings import Engine, Hub, Place, Settings
+from ear.settings import Arbiter, Engine, Hub, Place, Settings
 
 SETTINGS = Settings(
-    agent="example-node",
+    arbiter=Arbiter(address="http://127.0.0.1:7440"),
     hub=Hub(bun="/opt/example/bun", console="/opt/example/console.ts"),
     place=Place(
         root="/home/example/bmo-ear/",
@@ -59,9 +59,11 @@ class CarriedNameTest(unittest.TestCase):
 
 
 class ConsoleTest(unittest.TestCase):
-    def test_exec_names_the_agent_and_the_command(self):
+    def test_exec_names_the_granted_node_and_the_command(self):
         with mock.patch.object(node, "_run") as ran:
-            node.exec_on_node(SETTINGS, ["mkdir", "-p", "/tmp/x"], env={"BMO_CARD_SERVICE": "ear"})
+            node.exec_on_node(
+                SETTINGS, "example-node", ["mkdir", "-p", "/tmp/x"], env={"BMO_CARD_SERVICE": "ear"}
+            )
         argv = ran.call_args.args[0]
         self.assertEqual(
             argv,
@@ -82,12 +84,27 @@ class ConsoleTest(unittest.TestCase):
 
     def test_exec_refuses_an_empty_command(self):
         with self.assertRaises(node.NodeError):
-            node.exec_on_node(SETTINGS, [])
+            node.exec_on_node(SETTINGS, "example-node", [])
 
-    def test_upload_names_the_agent(self):
+    def test_exec_refuses_no_node(self):
+        with self.assertRaises(node.NodeError) as raised:
+            node.exec_on_node(SETTINGS, "", ["true"])
+        self.assertIn("no node", str(raised.exception))
+
+    def test_a_bounded_command_keeps_its_limit_and_an_unbounded_one_has_none(self):
+        with mock.patch.object(node, "_run") as ran:
+            node.exec_on_node(SETTINGS, "example-node", ["true"])
+            self.assertEqual(ran.call_args.args[1], node.RUN_LIMIT_S)
+            node.exec_on_node(SETTINGS, "example-node", ["true"], unbounded=True)
+            self.assertIsNone(ran.call_args.args[1])
+        with mock.patch.object(node.subprocess, "run") as run:
+            node._run(["true"], None)
+        self.assertIsNone(run.call_args.kwargs["timeout"])
+
+    def test_upload_names_the_granted_node(self):
         with mock.patch.object(node, "_run") as ran:
             ran.return_value.returncode = 0
-            node.upload(SETTINGS, Path("/tmp/voice.ogg"), "/home/example/bmo-ear/in/x.ogg")
+            node.upload(SETTINGS, "example-node", Path("/tmp/voice.ogg"), "/home/example/bmo-ear/in/x.ogg")
         argv = ran.call_args.args[0]
         self.assertEqual(argv[:2], ["/opt/example/bun", "/opt/example/console.ts"])
         self.assertEqual(argv[2], "upload")
@@ -96,7 +113,7 @@ class ConsoleTest(unittest.TestCase):
     def test_a_missing_console_is_named(self):
         with mock.patch.object(node.subprocess, "run", side_effect=FileNotFoundError("nope")):
             with self.assertRaises(node.NodeError) as raised:
-                node.exec_on_node(SETTINGS, ["true"])
+                node.exec_on_node(SETTINGS, "example-node", ["true"])
         self.assertIn("hub console could not be run", str(raised.exception))
 
     def test_a_failed_upload_carries_the_reason(self):
@@ -105,7 +122,9 @@ class ConsoleTest(unittest.TestCase):
             ran.return_value.stderr = "refused: no such agent\n"
             ran.return_value.stdout = ""
             with self.assertRaises(node.NodeError) as raised:
-                node.upload(SETTINGS, Path("/tmp/voice.ogg"), "/home/example/bmo-ear/in/x.ogg")
+                node.upload(
+                    SETTINGS, "example-node", Path("/tmp/voice.ogg"), "/home/example/bmo-ear/in/x.ogg"
+                )
         self.assertIn("no such agent", str(raised.exception))
 
     def test_tail_keeps_the_last_lines(self):

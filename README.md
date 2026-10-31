@@ -42,14 +42,16 @@ A session holding `room.tools` reaches the entry as `ear/listen`, or through the
 ## The card service
 
 `ear.card.toml` declares the `ear` service to the card master. The adapter installs the node's program
-and its `faster-whisper` environment on the node and answers whether they read. The card master places
-the service on the node the installation names; the tool asks the node's arbiter for the `ear` turn
-before the model runs.
+and its `faster-whisper` environment on the node and answers whether they read. Each call asks the
+card master a demand for one `ear` card, naming no node, runs on the node the granted card names, and
+gives the demand back when it ends; there the program asks the node's arbiter for the `ear` turn before
+the model runs.
 
 ## Settings
 
-The node, its reach and the installation's folders stand in `$BMO_DATA_DIR/ear/settings.toml`, never
-in this repository. `docs/setup.md` is the whole of it.
+The card master's address, the reach of a node and the installation's folders stand in
+`$BMO_DATA_DIR/ear/settings.toml`, never in this repository; no node is named there. `docs/setup.md`
+is the whole of it.
 
 ## Version
 

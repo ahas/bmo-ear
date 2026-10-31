@@ -49,7 +49,7 @@ class AdapterTest(unittest.TestCase):
         self.assertFalse(answer["ok"])
         self.assertIn("no node", answer["detail"])
 
-    def test_another_node_is_refused(self):
+    def test_the_verb_acts_on_the_node_the_master_names(self):
         with tempfile.TemporaryDirectory() as empty:
             settings = Path(empty) / "ear"
             settings.mkdir()
@@ -57,12 +57,12 @@ class AdapterTest(unittest.TestCase):
                 (ROOT / "tests" / "settings-example.toml").read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
-            code, answer = run_adapter("health", "--node", "another-node", "--placed", "another-node",
-                                       data_root=empty)
+            code, answer = run_adapter("health", "--node", "another-node",
+                                       "--placed", "example-node,another-node", data_root=empty)
+        # The example console does not stand, so the health check fails on the road to that node.
         self.assertEqual(code, 1)
-        self.assertFalse(answer["ok"])
-        self.assertIn("example-node", answer["detail"])
-        self.assertIn("another-node", answer["detail"])
+        self.assertEqual(answer["node"], "another-node")
+        self.assertIn("hub console", answer["detail"])
 
     def test_stop_starts_nothing(self):
         with tempfile.TemporaryDirectory() as empty:

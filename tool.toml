@@ -20,4 +20,5 @@ input = "transcribe.json"
 output = "transcribed.json"
 hints = { open_world = true }
 capabilities = ["room.tools"]
-timeout = 900
+# A call waits for its card as long as that takes (docs/design.md, 「The card」).
+unbounded = true

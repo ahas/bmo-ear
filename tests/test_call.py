@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ear import node
+from ear import demand, node
 from ear.call import CallError, transcribe
-from ear.settings import Engine, Hub, Place, Settings, SettingsError
+from ear.settings import Arbiter, Engine, Hub, Place, Settings, SettingsError
 
 SETTINGS = Settings(
-    agent="example-node",
+    arbiter=Arbiter(address="http://127.0.0.1:7440"),
     hub=Hub(bun="/opt/example/bun", console="/opt/example/console.ts"),
     place=Place(
         root="/home/example/bmo-ear",
@@ -26,6 +26,40 @@ SETTINGS = Settings(
 
 def completed(code=0, stdout="", stderr=""):
     return subprocess.CompletedProcess(args=[], returncode=code, stdout=stdout, stderr=stderr)
+
+
+class StandInHeld:
+    """A demand granted on one node, recording whether it was given back."""
+
+    def __init__(self, node_name="granted-node", refusal=None):
+        self.node_name = node_name
+        self.refusal = refusal
+        self.given_back = 0
+
+    def wait(self):
+        if self.refusal:
+            raise demand.DemandError(self.refusal)
+        return self.node_name
+
+    def give_back(self):
+        self.given_back += 1
+
+
+class StandInDemands:
+    def __init__(self, held=None, refusal=None):
+        self.held = held or StandInHeld()
+        self.refusal = refusal
+        self.swept = 0
+        self.asked = []
+
+    def sweep(self):
+        self.swept += 1
+
+    def ask(self, service, ref):
+        if self.refusal:
+            raise demand.DemandError(self.refusal)
+        self.asked.append((service, ref))
+        return self.held
 
 
 class CallTest(unittest.TestCase):
@@ -45,6 +79,10 @@ class CallTest(unittest.TestCase):
         self.mocks = [one.start() for one in self.patches]
         self.exec_on_node = mock.patch("ear.node.exec_on_node")
         self.run_mock = self.exec_on_node.start()
+        self.demands = StandInDemands()
+
+    def heard(self, path=None):
+        return transcribe(str(path or self.voice), self.root, demands=self.demands)
 
     def tearDown(self):
         self.exec_on_node.stop()
@@ -70,14 +108,14 @@ class CallTest(unittest.TestCase):
     def test_settings_that_do_not_read(self):
         with mock.patch("ear.call.read", side_effect=SettingsError("no file")):
             with self.assertRaises(CallError) as raised:
-                transcribe(str(self.voice), self.root)
+                self.heard()
         self.assertIn("settings do not read", str(raised.exception))
 
     def test_the_transcript_comes_back(self):
         self.run_mock.return_value = completed(
             stdout='{"transcript": "what was said", "language": "ko", "duration": 12.5}\n'
         )
-        answer = transcribe(str(self.voice), self.root)
+        answer = self.heard()
         self.assertEqual(
             answer,
             {"transcript": "what was said", "language": "ko", "duration": 12.5, "device": "cuda"},
@@ -85,8 +123,10 @@ class CallTest(unittest.TestCase):
 
     def test_the_run_takes_the_card_through_the_turn_client(self):
         self.run_mock.return_value = completed(stdout='{"transcript": "x"}\n')
-        transcribe(str(self.voice), self.root)
-        words = self.run_mock.call_args.args[1]
+        self.heard()
+        self.assertEqual(self.run_mock.call_args.args[1], "granted-node")
+        self.assertTrue(self.run_mock.call_args.kwargs["unbounded"])
+        words = self.run_mock.call_args.args[2]
         env = self.run_mock.call_args.kwargs["env"]
         self.assertEqual(env, {"BMO_CARD_SERVICE": "ear"})
         self.assertEqual(words[0], "/home/example/bmo-ear/.venv/bin/python")
@@ -101,15 +141,15 @@ class CallTest(unittest.TestCase):
 
     def test_a_cpu_installation_asks_no_card(self):
         cpu = Settings(
-            agent=SETTINGS.agent,
+            arbiter=SETTINGS.arbiter,
             hub=SETTINGS.hub,
             place=SETTINGS.place,
             engine=Engine(model="large-v3-turbo", language="ko", device="cpu", compute="int8"),
         )
         with mock.patch("ear.call.read", return_value=cpu):
             self.run_mock.return_value = completed(stdout='{"transcript": "x"}\n')
-            answer = transcribe(str(self.voice), self.root)
-        words = self.run_mock.call_args.args[1]
+            answer = self.heard()
+        words = self.run_mock.call_args.args[2]
         self.assertIsNone(self.run_mock.call_args.kwargs["env"])
         self.assertNotIn("/home/example/bmo-card/turn.py", words)
         self.assertEqual(answer["device"], "cpu")
@@ -119,40 +159,70 @@ class CallTest(unittest.TestCase):
             stdout='{"error": "the card is not available"}\n', stderr=""
         )
         with self.assertRaises(CallError) as raised:
-            transcribe(str(self.voice), self.root)
+            self.heard()
         self.assertIn("the card is not available", str(raised.exception))
 
     def test_no_place_on_the_card_is_named(self):
         self.run_mock.return_value = completed(code=3, stderr="turn: no place on this node\n")
         with self.assertRaises(CallError) as raised:
-            transcribe(str(self.voice), self.root)
+            self.heard()
         self.assertIn("no place", str(raised.exception))
         self.assertIn("no place on this node", str(raised.exception))
 
     def test_a_failed_run_carries_its_last_lines(self):
         self.run_mock.return_value = completed(code=1, stderr="Traceback\nCUDA out of memory\n")
         with self.assertRaises(CallError) as raised:
-            transcribe(str(self.voice), self.root)
+            self.heard()
         self.assertIn("ended with 1", str(raised.exception))
         self.assertIn("CUDA out of memory", str(raised.exception))
 
     def test_an_answer_that_does_not_read_is_refused(self):
         self.run_mock.return_value = completed(stdout="Segmentation fault\n")
         with self.assertRaises(CallError) as raised:
-            transcribe(str(self.voice), self.root)
+            self.heard()
         self.assertIn("nothing that reads", str(raised.exception))
 
     def test_the_copy_is_removed_when_the_run_fails(self):
         self.run_mock.return_value = completed(code=1, stderr="boom\n")
         with self.assertRaises(CallError):
-            transcribe(str(self.voice), self.root)
+            self.heard()
         node.remove_copy.assert_called_once()
+        self.assertEqual(self.demands.held.given_back, 1)
 
     def test_an_unreachable_node_is_the_answer(self):
         node.make_room.side_effect = node.NodeError("the hub console could not be run")
         with self.assertRaises(CallError) as raised:
-            transcribe(str(self.voice), self.root)
+            self.heard()
         self.assertIn("hub console", str(raised.exception))
+        self.assertIn("granted-node", str(raised.exception))
+        self.run_mock.assert_not_called()
+        self.assertEqual(self.demands.held.given_back, 1)
+
+    def test_the_card_is_asked_for_the_service_and_given_back(self):
+        self.run_mock.return_value = completed(stdout='{"transcript": "x"}\n')
+        self.heard()
+        self.assertEqual(self.demands.swept, 1)
+        self.assertEqual(len(self.demands.asked), 1)
+        service, ref = self.demands.asked[0]
+        self.assertEqual(service, "ear")
+        self.assertIn("a" * 64 + ".ogg", ref)
+        self.assertEqual(self.demands.held.given_back, 1)
+        for one in (node.make_room, node.upload, node.remove_copy):
+            self.assertEqual(one.call_args.args[1], "granted-node")
+
+    def test_a_refused_demand_is_the_answer_and_nothing_runs(self):
+        self.demands = StandInDemands(refusal="the card master places the service ear on no node")
+        with self.assertRaises(CallError) as raised:
+            self.heard()
+        self.assertIn("no node", str(raised.exception))
+        node.upload.assert_not_called()
+        self.run_mock.assert_not_called()
+
+    def test_a_demand_refused_while_waiting_is_given_back(self):
+        self.demands = StandInDemands(held=StandInHeld(refusal="the card master answered 400"))
+        with self.assertRaises(CallError):
+            self.heard()
+        self.assertEqual(self.demands.held.given_back, 1)
         self.run_mock.assert_not_called()
 
 

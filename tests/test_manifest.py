@@ -30,6 +30,9 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(f"{entry['namespace']}/{entry['name']}", "ear/listen")
         self.assertIn("room.tools", entry["capabilities"])
         self.assertTrue(entry["description"])
+        # A call waits for its card with no bound (docs/design.md, 「The card」).
+        self.assertIs(entry.get("unbounded"), True)
+        self.assertNotIn("timeout", entry)
 
         given = json.loads((ROOT / entry["input"]).read_text(encoding="utf-8"))
         self.assertEqual(given["type"], "object")

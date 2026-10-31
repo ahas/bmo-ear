@@ -1,8 +1,8 @@
-"""The road to the node: the hub console's upload and exec (docs/design.md, 「Where it listens」).
+"""The road to a node: the hub console's upload and exec (docs/design.md, 「Where it listens」).
 
-The console carries a whole file and runs one command on a node of the hub kind. No shell is built
-from a caller's words: the tool hands the console an argv list, and the only path it makes up is the
-name of the copy it carries, taken from the file's content.
+The console carries a whole file and runs one command on a node of the hub kind, named as the card
+master granted it. No shell is built from a caller's words: the tool hands the console an argv list,
+and the only path it makes up is the name of the copy it carries, taken from the file's content.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 
 from .settings import Settings
 
-# How long one transfer or one command on the node may take. The first run fetches the model's
-# weights there, so the bound is generous and the tool's own timeout covers it.
+# How long one transfer or one housekeeping command on the node may take. A command run unbounded,
+# the transcription waiting in the node's queue and holding its card, has none.
 RUN_LIMIT_S = 1800
 # How much of a failed run's standard error an answer carries.
 TAIL_LINES = 8
@@ -35,7 +35,13 @@ def _console(settings: Settings) -> list[str]:
     return [settings.hub.bun, settings.hub.console]
 
 
-def _run(argv: list[str], limit_s: int = RUN_LIMIT_S) -> subprocess.CompletedProcess:
+def _named(node_name: str) -> str:
+    if not isinstance(node_name, str) or not node_name.strip():
+        raise NodeError("no node was named to reach")
+    return node_name.strip()
+
+
+def _run(argv: list[str], limit_s: int | None = RUN_LIMIT_S) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(
             argv,
@@ -53,21 +59,28 @@ def _run(argv: list[str], limit_s: int = RUN_LIMIT_S) -> subprocess.CompletedPro
 
 
 def exec_on_node(
-    settings: Settings, words: list[str], env: dict[str, str] | None = None
+    settings: Settings,
+    node_name: str,
+    words: list[str],
+    env: dict[str, str] | None = None,
+    unbounded: bool = False,
 ) -> subprocess.CompletedProcess:
-    """One command on the node, its output kept off the tool's own streams."""
+    """One command on the named node, its output kept off the tool's own streams.
+
+    An unbounded command runs as long as it takes: nothing here ends it on time.
+    """
     if not words:
         raise NodeError("no command was named for the node")
-    argv = _console(settings) + ["exec", "-a", settings.agent]
+    argv = _console(settings) + ["exec", "-a", _named(node_name)]
     for key, value in (env or {}).items():
         argv += ["--env", f"{key}={value}"]
     argv += ["--", *words]
-    return _run(argv)
+    return _run(argv, None if unbounded else RUN_LIMIT_S)
 
 
-def upload(settings: Settings, local: Path, remote: str) -> None:
-    """Carry one file whole to the node, and fail with its reason where it did not go."""
-    argv = _console(settings) + ["upload", str(local), remote, "-a", settings.agent]
+def upload(settings: Settings, node_name: str, local: Path, remote: str) -> None:
+    """Carry one file whole to the named node, and fail with its reason where it did not go."""
+    argv = _console(settings) + ["upload", str(local), remote, "-a", _named(node_name)]
     ran = _run(argv)
     if ran.returncode != 0:
         said = tail(ran.stderr) or tail(ran.stdout)
@@ -98,10 +111,10 @@ def remote_copy(settings: Settings, name: str) -> str:
     return f"{settings.place.root.rstrip('/')}/in/{name}"
 
 
-def make_room(settings: Settings) -> None:
+def make_room(settings: Settings, node_name: str) -> None:
     """Make the node's folder for carried files, where it does not stand yet."""
     folder = f"{settings.place.root.rstrip('/')}/in"
-    ran = exec_on_node(settings, ["mkdir", "-p", folder])
+    ran = exec_on_node(settings, node_name, ["mkdir", "-p", folder])
     if ran.returncode != 0:
         said = tail(ran.stderr) or tail(ran.stdout)
         raise NodeError(
@@ -110,9 +123,9 @@ def make_room(settings: Settings) -> None:
         )
 
 
-def remove_copy(settings: Settings, remote: str) -> None:
+def remove_copy(settings: Settings, node_name: str, remote: str) -> None:
     """Take the copy off the node; a removal that fails leaves nothing of the answer undone."""
     try:
-        exec_on_node(settings, ["rm", "-f", remote])
+        exec_on_node(settings, node_name, ["rm", "-f", remote])
     except NodeError:
         pass

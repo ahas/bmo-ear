@@ -1,5 +1,6 @@
-"""One call of the listening tool (docs/design.md): a saved voice file carried to the node, transcribed
-there on the card, and the transcript answered back.
+"""One call of the listening tool (docs/design.md): a card asked of the card master, the saved voice file
+carried to the node the card is granted on, transcribed there on that card, the transcript answered
+back, and the card given back however the call ends.
 
 Every failure is raised as `CallError` carrying the reason. Nothing here answers an empty transcript
 for a run that failed, and nothing falls back to the CPU, to another machine or to another occupant's
@@ -12,7 +13,7 @@ import json
 import os
 from pathlib import Path
 
-from . import node
+from . import demand, node
 from .settings import Settings, SettingsError, read
 
 
@@ -109,8 +110,31 @@ def _answer(ran, language: str, device: str) -> dict:
     )
 
 
-def transcribe(path_text: str, data_root: str | Path) -> dict:
-    """What is said in one voice file, transcribed on the node through the card arbiter."""
+def _on_node(settings: Settings, node_name: str, path: Path, remote: str):
+    """The file carried to the granted node and the program run there, the copy removed after."""
+    try:
+        node.make_room(settings, node_name)
+        node.upload(settings, node_name, path, remote)
+    except node.NodeError as why:
+        raise CallError(f"{node_name}: {why}") from why
+
+    on_card = settings.engine.device == "cuda"
+    try:
+        return node.exec_on_node(
+            settings,
+            node_name,
+            _run_words(settings, remote),
+            env={"BMO_CARD_SERVICE": settings.place.service} if on_card else None,
+            unbounded=True,
+        )
+    except node.NodeError as why:
+        raise CallError(f"{node_name}: {why}") from why
+    finally:
+        node.remove_copy(settings, node_name, remote)
+
+
+def transcribe(path_text: str, data_root: str | Path, demands: demand.Demands | None = None) -> dict:
+    """What is said in one voice file, transcribed on the node the card master grants a card on."""
     path = _checked_file(path_text)
     try:
         settings = read(data_root)
@@ -120,21 +144,26 @@ def transcribe(path_text: str, data_root: str | Path) -> dict:
     try:
         name = node.carried_name(path)
         remote = node.remote_copy(settings, name)
-        node.make_room(settings)
-        node.upload(settings, path, remote)
     except node.NodeError as why:
         raise CallError(str(why)) from why
 
-    on_card = settings.engine.device == "cuda"
+    if demands is None:
+        demands = demand.Demands(settings.arbiter.address, demand.ledger_folder(data_root))
     try:
-        ran = node.exec_on_node(
-            settings,
-            _run_words(settings, remote),
-            env={"BMO_CARD_SERVICE": settings.place.service} if on_card else None,
-        )
-    except node.NodeError as why:
+        demands.sweep()
+        held = demands.ask(settings.place.service, f"ear listens to {name}")
+    except demand.DemandError as why:
         raise CallError(str(why)) from why
+    except OSError as why:
+        raise CallError(f"the ledger of demands could not be kept: {why}") from why
+
+    try:
+        try:
+            node_name = held.wait()
+        except demand.DemandError as why:
+            raise CallError(str(why)) from why
+        ran = _on_node(settings, node_name, path, remote)
     finally:
-        node.remove_copy(settings, remote)
+        held.give_back()
 
     return _answer(ran, settings.engine.language, settings.engine.device)

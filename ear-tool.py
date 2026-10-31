@@ -8,6 +8,8 @@ it. The file itself is carried to the node and transcribed there; this process a
 from __future__ import annotations
 
 import os
+import signal
+import sys
 from pathlib import Path
 
 import bmo_tool
@@ -28,6 +30,9 @@ def heard(call: bmo_tool.Call) -> dict:
 
 
 def main() -> None:
+    # A call whose caller goes away is ended by a signal; leaving through the call's own ending gives
+    # its card back at once rather than at the next call.
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(128 + signum))
     bmo_tool.answer({"ear/listen": heard})
 
 
