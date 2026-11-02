@@ -24,6 +24,8 @@
   console, the master's address and the folders under the node account's home are the installation's,
   kept in a settings file under the data root. No address, account or path of a machine stands in this
   repository.
+- Carrying the file and every command on the node run through the hub console until the console ends
+  them, the installation's commands as much as the transcription: nothing here ends them on time.
 
 ## The card
 
@@ -34,6 +36,11 @@
   master cannot be reached, the call waits and asks again. A master that no longer holds the demand,
   one restarted, is asked a new one. Once the card is granted, the call runs on the node the card
   names.
+- **A request to the master has no timeout.** Each one ends at the master's answer, a refused or
+  broken connection, or the master gone. Its connection carries the transport's keep-alive probes, so
+  a master whose machine fell silent is told from one still working on the answer. A read of a waiting
+  demand is one the master holds open for a span the call names and answers then if nothing moved;
+  the call asks it again, so that span paces the wait and ends nothing.
 - **The demand is given back when the call ends,** however it ends: transcribed, failed on the node, or
   failed on the way to it.
 - **Every demand a call holds stands in a ledger** under the data root, from its asking until it is given

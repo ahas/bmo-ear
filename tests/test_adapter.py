@@ -21,7 +21,6 @@ def run_adapter(*args, data_root=None):
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
-        timeout=60,
     )
     last = ran.stdout.strip().splitlines()[-1]
     return ran.returncode, json.loads(last)

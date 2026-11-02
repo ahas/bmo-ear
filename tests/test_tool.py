@@ -24,7 +24,6 @@ def call(entry, arguments, data_root, protocol=1, session=None, env=None):
         input=json.dumps(handed),
         capture_output=True,
         text=True,
-        timeout=60,
         env=env,
     )
 

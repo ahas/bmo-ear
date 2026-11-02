@@ -91,15 +91,13 @@ class ConsoleTest(unittest.TestCase):
             node.exec_on_node(SETTINGS, "", ["true"])
         self.assertIn("no node", str(raised.exception))
 
-    def test_a_bounded_command_keeps_its_limit_and_an_unbounded_one_has_none(self):
-        with mock.patch.object(node, "_run") as ran:
-            node.exec_on_node(SETTINGS, "example-node", ["true"])
-            self.assertEqual(ran.call_args.args[1], node.RUN_LIMIT_S)
-            node.exec_on_node(SETTINGS, "example-node", ["true"], unbounded=True)
-            self.assertIsNone(ran.call_args.args[1])
+    def test_every_command_runs_until_the_console_ends_it(self):
         with mock.patch.object(node.subprocess, "run") as run:
-            node._run(["true"], None)
-        self.assertIsNone(run.call_args.kwargs["timeout"])
+            run.return_value.returncode = 0
+            node.exec_on_node(SETTINGS, "example-node", ["true"])
+            node.upload(SETTINGS, "example-node", Path("/tmp/voice.ogg"), "/home/example/bmo-ear/in/x.ogg")
+        for one in run.call_args_list:
+            self.assertNotIn("timeout", one.kwargs)
 
     def test_upload_names_the_granted_node(self):
         with mock.patch.object(node, "_run") as ran:

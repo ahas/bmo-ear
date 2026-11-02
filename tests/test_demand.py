@@ -3,6 +3,7 @@
 import fcntl
 import json
 import os
+import socket
 import subprocess
 import tempfile
 import threading
@@ -187,6 +188,23 @@ class DemandTest(unittest.TestCase):
         self.assertEqual(len(self.master.asked("DELETE")), 1)
         self.assertEqual(self.master.demands, {})
 
+    def test_every_request_to_the_master_waits_for_its_answer_on_a_probed_connection(self):
+        opened = []
+        probe = demand.keep_probing
+
+        def probed(sock):
+            probe(sock)
+            opened.append((sock.gettimeout(), sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE)))
+
+        with mock.patch.object(demand, "keep_probing", side_effect=probed):
+            held = self.demands().ask("ear", "ear listens to a file")
+            held.wait()
+            held.give_back()
+        self.assertGreaterEqual(len(opened), 3)
+        for timeout, keepalive in opened:
+            self.assertIsNone(timeout)
+            self.assertTrue(keepalive)
+
     def test_the_demand_names_no_node(self):
         held = self.demands().ask("ear", "ear listens to a file")
         held.wait()
@@ -335,7 +353,6 @@ class CallOnTheGrantedNodeTest(unittest.TestCase):
         self.assertEqual(answer["transcript"], "what was said")
         self.assertGreater(self.clock.now, 24 * 3600)
         self.assertEqual(exec_on_node.call_args.args[1], "node-b")
-        self.assertTrue(exec_on_node.call_args.kwargs["unbounded"])
         self.assertEqual(len(self.master.asked("DELETE")), 1)
         self.assertEqual(self.master.demands, {})
         self.assertEqual(list(demand.ledger_folder(self.root).glob("*.json")), [])

@@ -3,6 +3,7 @@
 The console carries a whole file and runs one command on a node of the hub kind, named as the card
 master granted it. No shell is built from a caller's words: the tool hands the console an argv list,
 and the only path it makes up is the name of the copy it carries, taken from the file's content.
+Every transfer and every command runs until the console ends it: nothing here ends one on time.
 """
 
 from __future__ import annotations
@@ -14,9 +15,6 @@ from pathlib import Path
 
 from .settings import Settings
 
-# How long one transfer or one housekeeping command on the node may take. A command run unbounded,
-# the transcription waiting in the node's queue and holding its card, has none.
-RUN_LIMIT_S = 1800
 # How much of a failed run's standard error an answer carries.
 TAIL_LINES = 8
 
@@ -41,19 +39,11 @@ def _named(node_name: str) -> str:
     return node_name.strip()
 
 
-def _run(argv: list[str], limit_s: int | None = RUN_LIMIT_S) -> subprocess.CompletedProcess:
+def _run(argv: list[str]) -> subprocess.CompletedProcess:
     try:
-        return subprocess.run(
-            argv,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=limit_s,
-        )
+        return subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True)
     except FileNotFoundError as why:
         raise NodeError(f"the hub console could not be run: {why}") from why
-    except subprocess.TimeoutExpired as why:
-        raise NodeError(f"the hub console answered nothing within {limit_s} seconds") from why
     except OSError as why:
         raise NodeError(f"the hub console could not be run: {why}") from why
 
@@ -63,19 +53,16 @@ def exec_on_node(
     node_name: str,
     words: list[str],
     env: dict[str, str] | None = None,
-    unbounded: bool = False,
 ) -> subprocess.CompletedProcess:
-    """One command on the named node, its output kept off the tool's own streams.
-
-    An unbounded command runs as long as it takes: nothing here ends it on time.
-    """
+    """One command on the named node, run as long as it takes, its output kept off the tool's own
+    streams."""
     if not words:
         raise NodeError("no command was named for the node")
     argv = _console(settings) + ["exec", "-a", _named(node_name)]
     for key, value in (env or {}).items():
         argv += ["--env", f"{key}={value}"]
     argv += ["--", *words]
-    return _run(argv, None if unbounded else RUN_LIMIT_S)
+    return _run(argv)
 
 
 def upload(settings: Settings, node_name: str, local: Path, remote: str) -> None:

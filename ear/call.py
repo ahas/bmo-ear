@@ -125,7 +125,6 @@ def _on_node(settings: Settings, node_name: str, path: Path, remote: str):
             node_name,
             _run_words(settings, remote),
             env={"BMO_CARD_SERVICE": settings.place.service} if on_card else None,
-            unbounded=True,
         )
     except node.NodeError as why:
         raise CallError(f"{node_name}: {why}") from why

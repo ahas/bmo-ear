@@ -8,14 +8,18 @@ it back.
 
 Nothing here ends a wait on time: a master that holds the demand in line, one that cannot be reached,
 or one that answers it at once without a card is asked again, however long that takes. Only the
-master's refusal ends a wait, and it is raised as `DemandError`.
+master's refusal ends a wait, and it is raised as `DemandError`. No request to the master has a
+timeout either: each ends at the answer, a refused or broken connection, or a master gone, which the
+connection's keep-alive probes tell from one still answering.
 """
 
 from __future__ import annotations
 
 import fcntl
+import http.client
 import json
 import os
+import socket
 import sys
 import time
 import urllib.error
@@ -26,13 +30,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-# How long the master is asked to hold a waiting demand's answer open before the call asks again.
+# How long the master is asked to hold a waiting demand's answer open before the call asks again. It
+# paces the asking and ends nothing.
 HOLD_MS = 60_000
-# How long past the hold a read may stand before the connection is taken as lost and the read asked
-# again. It ends a connection, never the wait.
-READ_MARGIN_S = 30
-# How long one request that the master answers at once may take.
-QUICK_LIMIT_S = 30
+# The keep-alive probes on a connection to the master: quiet this many seconds before the first, this
+# many seconds between them, and this many unanswered before the kernel calls the master gone. They
+# tell a master whose machine fell silent from one still working, and never bound a live answer.
+KEEP_IDLE_S = 30
+KEEP_EVERY_S = 10
+KEEP_MISSED = 3
 # The pause before asking again, where the master was not reached or answered a demand with no card.
 PAUSE_S = 2.0
 # The work key's prefix; each call adds a fresh identifier.
@@ -101,15 +107,54 @@ def _reason(demand: dict) -> str:
     return f"the demand is {demand.get('state') or 'waiting'}"
 
 
+def keep_probing(sock: socket.socket) -> None:
+    """Turn the transport's keep-alive probes on for one connection to the master."""
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    for name, value in (
+        ("TCP_KEEPIDLE", KEEP_IDLE_S),
+        ("TCP_KEEPINTVL", KEEP_EVERY_S),
+        ("TCP_KEEPCNT", KEEP_MISSED),
+    ):
+        if hasattr(socket, name):
+            sock.setsockopt(socket.IPPROTO_TCP, getattr(socket, name), value)
+
+
+class _ProbedConnection(http.client.HTTPConnection):
+    """A connection with no timeout, its keep-alive probes on."""
+
+    def connect(self) -> None:
+        super().connect()
+        keep_probing(self.sock)
+
+
+class _ProbedSecureConnection(http.client.HTTPSConnection):
+    """A secure connection with no timeout, its keep-alive probes on."""
+
+    def connect(self) -> None:
+        super().connect()
+        keep_probing(self.sock)
+
+
+class _ProbedHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_ProbedConnection, req)
+
+
+class _ProbedSecureHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_ProbedSecureConnection, req, context=self._context)
+
+
+_OPENER = urllib.request.build_opener(_ProbedHandler, _ProbedSecureHandler)
+
+
 class Master:
     """The card master's demand routes, at one address."""
 
     def __init__(self, address: str):
         self.address = address.rstrip("/")
 
-    def _request(
-        self, method: str, path: str, body: dict | None = None, limit_s: float = QUICK_LIMIT_S
-    ) -> tuple[int, dict | None]:
+    def _request(self, method: str, path: str, body: dict | None = None) -> tuple[int, dict | None]:
         data = json.dumps(body).encode("utf-8") if body is not None else None
         request = urllib.request.Request(
             self.address + path,
@@ -118,7 +163,7 @@ class Master:
             headers={"content-type": "application/json"} if data is not None else {},
         )
         try:
-            with urllib.request.urlopen(request, timeout=limit_s) as answer:
+            with _OPENER.open(request) as answer:
                 status, read = answer.status, answer.read()
         except urllib.error.HTTPError as why:
             status, read = why.code, why.read()
@@ -155,11 +200,7 @@ class Master:
     def read(self, demand_id: int, hold_ms: int) -> dict | None:
         """The demand as the master holds it, its answer held open while it waits; None where gone."""
         query = urllib.parse.urlencode({"waitMs": hold_ms})
-        status, answer = self._request(
-            "GET",
-            f"/demands/{demand_id}?{query}",
-            limit_s=hold_ms / 1000 + READ_MARGIN_S,
-        )
+        status, answer = self._request("GET", f"/demands/{demand_id}?{query}")
         if status == 404:
             return None
         if status == 200 and isinstance(answer, dict):

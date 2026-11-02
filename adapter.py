@@ -21,7 +21,6 @@ from ear.node import NodeError, exec_on_node, tail, upload
 from ear.settings import SettingsError, read
 
 HERE = Path(__file__).resolve().parent
-INSTALL_LIMIT_S = 3600
 
 
 def say(fields: dict, code: int = 0) -> int:

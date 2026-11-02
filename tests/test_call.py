@@ -125,7 +125,6 @@ class CallTest(unittest.TestCase):
         self.run_mock.return_value = completed(stdout='{"transcript": "x"}\n')
         self.heard()
         self.assertEqual(self.run_mock.call_args.args[1], "granted-node")
-        self.assertTrue(self.run_mock.call_args.kwargs["unbounded"])
         words = self.run_mock.call_args.args[2]
         env = self.run_mock.call_args.kwargs["env"]
         self.assertEqual(env, {"BMO_CARD_SERVICE": "ear"})
