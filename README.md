@@ -18,7 +18,7 @@ there and removed; the transcript comes back as text.
 
 At the root stand the tool's manifest (`tool.toml`), the card master's declaration (`ear.card.toml`),
 the entry's schemas, the executable (`ear-tool.py`), the tool host's Python helper (`bmo_tool.py`),
-the adapter (`adapter.py`), the testbed declaration (`testbed.toml`) and the version.
+the adapter (`adapter.py`) and the testbed declaration (`testbed.toml`).
 
 ## Building and testing
 
@@ -55,4 +55,5 @@ is the whole of it.
 
 ## Version
 
-`VERSION` holds the repository's one version, `0.1.0` with a revision until the first release.
+The version is the set's, read off the git tags when a build is made (bmo-chat's `docs/conventions.md`,
+「Versions」); no file of this repository holds it.
